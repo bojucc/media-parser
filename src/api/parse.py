@@ -5,6 +5,7 @@ from configs.logging_config import get_logger
 from utils.web_fetcher import WebFetcher, UrlParser
 from src.parser_factory import ParserFactory
 from src.api.response import make_response
+from src.api.download import create_download_token
 from src.db import refund_user_credit, reserve_user_credit
 from src.api.access import (
     authenticate_api_key,
@@ -244,6 +245,10 @@ def _execute_parse(text, access):
             'author': content_data['author'],
             'image_list': processed_image_list
         }
+        if primary_video_url:
+            data_dict['video_download_token'] = create_download_token(primary_video_url, 'video')
+        if cover_url:
+            data_dict['cover_download_token'] = create_download_token(cover_url, 'cover')
         if len(processed_video_list) > 1:
             data_dict['video_list'] = processed_video_list
         if content_data.get('subtitles'):

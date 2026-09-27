@@ -79,7 +79,9 @@ curl -X POST "http://localhost:5000/api/v1/parse" \
     "title": "作品文案标题",
     "desc": "作品完整描述/AI对话正文",
     "video_url": "https://aweme.snssdk.com/aweme/v1/play/...",
+    "video_download_token": "短时效签名下载凭证",
     "cover_url": "https://p3-pc.douyinpic.com/...",
+    "cover_download_token": "短时效签名下载凭证",
     "author": {
       "nickname": "创作者昵称",
       "author_id": "unique_id_123",
@@ -102,7 +104,20 @@ curl -X POST "http://localhost:5000/api/v1/parse" \
 }
 ```
 
-### 3.3 字段设计与兼容兜底规则
+解析结果中的 `video_download_token` 和 `cover_download_token` 仅用于通过自有后端下载对应媒体，不应存入公开日志或长期缓存。下载凭证默认 24 小时过期；视频最大 512 MiB，封面最大 32 MiB。
+
+### 3.3 通过后端保存媒体
+
+小程序下载请求使用已配置的 API 域名，并将签名凭证放在请求头；服务端流式转发媒体，不要求小程序将动态 CDN 域名加入 `downloadFile` 合法域名。
+
+```http
+GET /api/download HTTP/1.1
+X-Media-Download-Token: <video_download_token>
+```
+
+封面下载时传入 `cover_download_token`。代理只接受 HTTPS 公网地址，逐跳检查 DNS 解析及重定向目标，拒绝本地或私有网络地址；上游媒体地址需能从后端主机访问。成功时以附件形式流式返回视频或图片；无效/过期凭证返回 400，目标地址不安全返回 403，上游不可用返回 502。
+
+### 3.4 字段设计与兼容兜底规则
 
 为了让调用方使用最简逻辑接入并兼容 50 个平台的不同媒体形态，系统制定了以下统一字段语义与兜底策略：
 

@@ -3,6 +3,7 @@ import secrets
 import fcntl
 from datetime import timedelta
 from flask import Flask
+from src.api.download import bp as download_bp
 from src.api.parse import bp as api_bp
 from src.web.views import bp as web_bp
 from src.auth import bp as auth_bp, register_template_helpers
@@ -66,6 +67,7 @@ def create_app(config=None):
 
     # 注册蓝图
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(download_bp, url_prefix='/api')
     if not app.config.get('API_ONLY'):
         register_template_helpers(app)
         app.register_blueprint(web_bp)
