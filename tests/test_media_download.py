@@ -71,6 +71,88 @@ class MediaDownloadTest(unittest.TestCase):
         self.assertTrue(data["video_download_token"])
         self.assertTrue(data["cover_download_token"])
 
+    def test_upstream_session_is_reused_per_thread(self):
+        from src.api.download import _get_http_session
+
+        first = _get_http_session()
+        second = _get_http_session()
+        self.assertIs(first, second)
+        self.assertIsNotNone(first.get_adapter("https://"))
+
+    def test_download_logs_transfer_metrics_without_signed_url_or_token(self):
+        from src.api.download import create_download_token
+
+        signed_url = "https://cdn.example/video.mp4?signature=private-value"
+        with app.app_context():
+            token = create_download_token(signed_url, "video", "test")
+        upstream = unittest.mock.Mock(
+            status_code=200,
+            headers={"Content-Type": "video/mp4", "Content-Length": "5"},
+            url=signed_url,
+        )
+        upstream.iter_content.return_value = [b"video"]
+        with patch("src.api.download._validate_public_target"), patch(
+            "src.api.download._get_http_session"
+        ) as get_session:
+            get_session.return_value.get.return_value = upstream
+            with self.assertLogs("app", level="INFO") as captured:
+                response = self.client.get(
+                    "/api/download", headers={"X-Media-Download-Token": token}
+                )
+                self.assertEqual(response.data, b"video")
+
+        log_output = "\n".join(captured.output)
+        self.assertIn("cdn.example", log_output)
+        self.assertIn("bytes=5", log_output)
+        self.assertNotIn("private-value", log_output)
+        self.assertNotIn(token, log_output)
+
+    def test_download_uses_parse_title_as_filename(self):
+        data = self.parsed_data()
+        upstream = unittest.mock.Mock(
+            status_code=200,
+            headers={"Content-Type": "video/mp4", "Content-Length": "11"},
+        )
+        upstream.iter_content.return_value = [b"video bytes"]
+        session = unittest.mock.Mock()
+        session.get.return_value = upstream
+        with patch("src.api.download._validate_public_target"), patch(
+            "src.api.download._get_http_session", return_value=session
+        ):
+            response = self.client.get(
+                "/api/download",
+                headers={"X-Media-Download-Token": data["video_download_token"]},
+            )
+
+        self.assertIn("filename*=UTF-8''%E6%B5%8B%E8%AF%95%E8%A7%86%E9%A2%91.mp4", response.headers["Content-Disposition"])
+
+    def test_download_forwards_range_request_to_upstream(self):
+        data = self.parsed_data()
+        upstream = unittest.mock.Mock(
+            status_code=206,
+            headers={
+                "Content-Type": "video/mp4",
+                "Content-Length": "5",
+                "Content-Range": "bytes 5-9/10",
+            },
+        )
+        upstream.iter_content.return_value = [b"bytes"]
+        session = unittest.mock.Mock()
+        session.get.return_value = upstream
+        with patch("src.api.download._validate_public_target"), patch(
+            "src.api.download._get_http_session", return_value=session
+        ) as get_session:
+            response = self.client.get(
+                "/api/download",
+                headers={
+                    "X-Media-Download-Token": data["video_download_token"],
+                    "Range": "bytes=5-9",
+                },
+            )
+
+        self.assertEqual(response.status_code, 206)
+        self.assertEqual(get_session.return_value.get.call_args.kwargs["headers"]["Range"], "bytes=5-9")
+
     def test_signed_download_streams_media_from_backend(self):
         data = self.parsed_data()
         upstream = unittest.mock.Mock(
@@ -78,8 +160,10 @@ class MediaDownloadTest(unittest.TestCase):
             headers={"Content-Type": "video/mp4", "Content-Length": "11"},
         )
         upstream.iter_content.return_value = [b"video bytes"]
+        session = unittest.mock.Mock()
+        session.get.return_value = upstream
         with patch("src.api.download._validate_public_target"), patch(
-            "src.api.download.requests.get", return_value=upstream
+            "src.api.download._get_http_session", return_value=session
         ):
             video_response = self.client.get(
                 "/api/download",
@@ -89,6 +173,7 @@ class MediaDownloadTest(unittest.TestCase):
         self.assertEqual(video_response.status_code, 200)
         self.assertEqual(video_response.data, b"video bytes")
         self.assertEqual(video_response.mimetype, "video/mp4")
+        self.assertEqual(video_response.headers["X-Accel-Buffering"], "no")
 
     def test_missing_token_is_rejected(self):
         response = self.client.get("/api/download")
@@ -120,13 +205,13 @@ class MediaDownloadTest(unittest.TestCase):
         with patch(
             "src.api.download.socket.getaddrinfo",
             return_value=[(2, 1, 6, "", ("127.0.0.1", 443))],
-        ), patch("src.api.download.requests.get") as fetch:
+        ), patch("src.api.download._get_http_session") as get_session:
             response = self.client.get(
                 "/api/download", headers={"X-Media-Download-Token": token}
             )
 
         self.assertEqual(response.status_code, 403)
-        fetch.assert_not_called()
+        get_session.assert_not_called()
 
     def test_redirect_to_private_ip_is_rejected(self):
         token = self.parsed_data()["video_download_token"]
@@ -139,19 +224,22 @@ class MediaDownloadTest(unittest.TestCase):
         with patch(
             "src.api.download.socket.getaddrinfo",
             side_effect=[[public_address], [private_address]],
-        ), patch("src.api.download.requests.get", return_value=redirect) as fetch:
+        ), patch("src.api.download._get_http_session") as get_session:
+            get_session.return_value.get.return_value = redirect
             response = self.client.get(
                 "/api/download", headers={"X-Media-Download-Token": token}
             )
 
         self.assertEqual(response.status_code, 403)
-        self.assertEqual(fetch.call_count, 1)
+        self.assertEqual(get_session.return_value.get.call_count, 1)
 
     def test_upstream_forbidden_response_is_not_returned_as_a_file(self):
         token = self.parsed_data()["video_download_token"]
         upstream = unittest.mock.Mock(status_code=403, headers={})
+        session = unittest.mock.Mock()
+        session.get.return_value = upstream
         with patch("src.api.download._validate_public_target"), patch(
-            "src.api.download.requests.get", return_value=upstream
+            "src.api.download._get_http_session", return_value=session
         ):
             response = self.client.get(
                 "/api/download", headers={"X-Media-Download-Token": token}
@@ -166,8 +254,10 @@ class MediaDownloadTest(unittest.TestCase):
             status_code=200,
             headers={"Content-Type": "video/mp4", "Content-Length": str(512 * 1024 * 1024 + 1)},
         )
+        session = unittest.mock.Mock()
+        session.get.return_value = upstream
         with patch("src.api.download._validate_public_target"), patch(
-            "src.api.download.requests.get", return_value=upstream
+            "src.api.download._get_http_session", return_value=session
         ):
             response = self.client.get(
                 "/api/download", headers={"X-Media-Download-Token": token}

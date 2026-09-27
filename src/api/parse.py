@@ -246,9 +246,9 @@ def _execute_parse(text, access):
             'image_list': processed_image_list
         }
         if primary_video_url:
-            data_dict['video_download_token'] = create_download_token(primary_video_url, 'video')
+            data_dict['video_download_token'] = create_download_token(primary_video_url, 'video', title)
         if cover_url:
-            data_dict['cover_download_token'] = create_download_token(cover_url, 'cover')
+            data_dict['cover_download_token'] = create_download_token(cover_url, 'cover', title)
         if len(processed_video_list) > 1:
             data_dict['video_list'] = processed_video_list
         if content_data.get('subtitles'):
