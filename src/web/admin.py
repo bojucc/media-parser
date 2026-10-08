@@ -146,6 +146,11 @@ def update_settings():
     set_setting("api_tip_website", (request.form.get("api_tip_website") or "").strip() or "https://github.com/ucmao/media-parser")
     set_setting("api_tip_notice", (request.form.get("api_tip_notice") or "").strip() or "本接口由开源项目 media-parser 提供服务")
 
+    # 保存平台 Cookie 覆盖凭据及动态代理 API 地址
+    for key in request.form:
+        if key.startswith("cookie_") or key == "dynamic_proxy_api_url":
+            set_setting(key, (request.form.get(key) or "").strip())
+
     db.commit()
 
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or "application/json" in request.headers.get("Accept", "")

@@ -17,8 +17,8 @@
   * 视频号图集短链：`https://weixin.qq.com/sph/APclmPJEZ0`
   * H5 预览页长链：`https://channels.weixin.qq.com/finder-preview/pages/sph?id={short_id}`
 * **Cookie 依赖**：
-  * **公开基础信息 (标题/作者/封面)**：**无需 Cookie**（匿名请求官方 Finder Preview H5 页面即可提取）。
-  * **完整媒体流 (高清无水印视频 / 高清图集 / 原声音乐)**：由于微信官方对媒体流和图集进行了鉴权限制（匿名访问仅返回 `picInfo: []` 与封面图），系统采用**腾讯元宝接口代理**方案，需在 `.env` 中配置 `YUANBAO_COOKIE`。
+  * **基础作者信息 (作者昵称/头像/封面)**：**无需 Cookie**（匿名访问 Finder Preview 仅能提取作者与封面，无法解析视频直链与标题）。
+  * **完整媒体流 (无水印视频直链 / 高清图集 / 视频标题 / 原声音频)**：由于微信官方对媒体流和标题进行了强鉴权限制（匿名 `generalToken: ""` 模式下接口不再返回 `videoUrl`、`title` 及 `picInfo`），系统采用**腾讯元宝接口代理**换取临时 `generalToken` 凭证，必须在 `.env` 中配置 `YUANBAO_COOKIE`。
   * ⚠️ **隐私提示**：`YUANBAO_COOKIE` 包含腾讯元宝平台个人账号的会话凭证（`hy_user` 与 `hy_token`），属于**个人账号登录隐私凭证**，**强烈建议使用闲置小号**进行配置。
 
 ---
@@ -35,12 +35,12 @@ flowchart TD
     ExtractAuth --> FeedInfoAPI["请求 finder-preview get_feed_info 接口"]
     FeedInfoAPI --> MediaTypeCheck{"媒体类型判断"}
     
-    MediaTypeCheck -->|"mediaType == 4 (视频)"| ExtractVideo["提取原始未加密 MP4 视频直链 (H264/H265)"]
-    MediaTypeCheck -->|"mediaType == 2 (图集)"| ExtractAlbum["提取完整 picInfo 高清图集列表 + bgmInfo 原声音频"]
+    MediaTypeCheck -->|"mediaType == 4 (视频)"| ExtractVideo["提取原始未加密 MP4 视频直链 (H264/H265) + 标题"]
+    MediaTypeCheck -->|"mediaType == 2 (图集)"| ExtractAlbum["提取完整 picInfo 高清图集列表 + bgmInfo 原声音频 + 标题"]
     
-    AuthCheck -->|"未配置 / 接口异常"| PublicFallback["触发官方 H5 页面匿名兜底"]
+    AuthCheck -->|"未配置 / Cookie失效"| PublicFallback["触发官方 H5 页面匿名兜底"]
     PublicFallback --> FinderAPI["请求 finder-preview 页面与 feed 接口 (仅 shortUri)"]
-    FinderAPI --> BasicInfo["提取标题、作者、封面与公开元数据 (无媒体流)"]
+    FinderAPI --> BasicInfo["仅能提取作者昵称、头像与封面 (视频/图集/标题均为空)"]
 ```
 
 ### 2.1 核心 API

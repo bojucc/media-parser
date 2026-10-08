@@ -14,7 +14,7 @@
   * 微博实况图集 (Live Photo, .mov / .mp4 动图视频流)
   * 微博正文内容与博主信息
 * **常见链接形态**：
-  * 视频页：`https://video.weibo.com/show?fid=1034:5336219874426938`
+  * 视频页 (数字或十六进制/字母数字混合 fid)：`https://video.weibo.com/show?fid=1034:5336219874426938` 或 `https://video.weibo.com/show?fid=1034:cba52f9b57b69ca1a0cde0c2211e1ca1`
   * 直播/回放页：`https://weibo.com/l/wblive/p/show/1022:2321325311149536575703`
   * 实况/图文博文：`https://weibo.com/6288169783/5344438765488239`
   * 网页长链：`https://weibo.com/1234567890/Mabcdef`
@@ -31,9 +31,10 @@
 
 ### 2.2 视频流、直播回放与图文分支提取
 * **分支 1 (视频专页 `1034:xxx` 与直播回放 `1022:xxx`)**：
-  * 识别 `fid=1034:...`、`/tv/show/1034:...` 以及 `/l/wblive/p/show/1022:...`；
-  * 初始化访客凭证后，针对视频先调用组件接口 `https://weibo.com/tv/api/component` (`Component_Play_Playinfo`)；
-  * 针对微博直播（`1022:...`）链接，若组件接口未返回媒体数据，进一步请求 `https://weibo.com/l/!/2/wblive/room/show_pc_live.json?live_id=1022:...` 提取直播/回放地址（`replay_origin_url` / `live_origin_hls_url`）、封面及主播信息。
+  * 识别并正则匹配 `fid=1034:<media_id>`、`/tv/show/1034:<media_id>` 以及 `/l/wblive/p/show/1022:<media_id>`，同时兼容纯数字 `media_id` 与十六进制/字母数字混合 `media_id`（如 `1034:cba52f9b57b69ca1a0cde0c2211e1ca1`）；
+  * 初始化 Visitor 访客凭证获取合法 Session 状态，调用 PC 端视频组件接口 `https://weibo.com/tv/api/component` (`Component_Play_Playinfo`) 提取分辨率列表、直链 (`stream_url` / `urls`) 及博主/标题元数据；
+  * 针对微博直播（`1022:...`）链接，若组件接口未返回媒体数据，进一步请求 `https://weibo.com/l/!/2/wblive/room/show_pc_live.json?live_id=1022:...` 提取直播/回放地址（`replay_origin_url` / `live_origin_hls_url`）、封面及主播信息；
+  * 阻断误退化：当确认 URL 为视频专页，若组件 API 未返回有效数据，解析器直接终止查询并返回空字典，防止误将视频 `oid` 作为博文 `status_id` 传给 `m.weibo.cn/statuses/show` 触发无意义 404 异常。
 * **分支 2 (标准微博动态 `statuses/show`)**：
   * 从 `page_info.media_info.playback_list` 获取不同分辨率的 MP4 直链；
   * 从 `pics` 或 `pic_ids` 遍历提取原图并做去水印前缀转换；

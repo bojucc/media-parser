@@ -11,7 +11,7 @@
 | 平台名称 | 环境变量 Key | 别名支持 | 必要性 / 使用场景 | 推荐精简字段 |
 | :--- | :--- | :--- | :--- | :--- |
 | **小红书** | `XHS_COOKIE` | `XIAOHONGSHU_COOKIE` | 🟡 **可选 (防风控)**：日常免 Cookie 解析；机房 IP 遭遇 302 登录拦截时配置 | `a1=xxx; webId=xxx; web_session=xxx;` |
-| **微信视频号** | `YUANBAO_COOKIE` | `WECHAT_CHANNELS_COOKIE` | 🔐 **必需 (媒体流)**：提取视频号无水印视频流与图集（依赖腾讯元宝接口） | `hy_user=xxx; hy_token=xxx;` |
+| **微信视频号** | `YUANBAO_COOKIE` | `WECHAT_CHANNELS_COOKIE` | 🔐 **必需 (媒体流与标题)**：提取视频号无水印视频直链、视频标题与高清图集（微信官方加强了匿名 `generalToken` 鉴权，匿名模式下视频直链与标题为空，必须依赖元宝 Cookie） | `hy_user=xxx; hy_token=xxx;` |
 | **快手** | `KUAISHOU_COOKIE` | `KS_COOKIE` | 🟡 **可选 (防风控)**：日常免 Cookie 解析；触发 `result: 2` 反爬时配置 | `kpf=PC_WEB; kpn=KUAISHOU_VISION; did=xxx;` |
 | **拼多多** | `PINDUODUO_COOKIE` | `PDD_COOKIE` | 🟡 **部分依赖**：商品图集免 Cookie；多多视频短视频流解析需要 | `PDDAccessToken=xxx;` |
 | **豆包 AI** | `DOUBAO_COOKIE` | - | 🟡 **可选 (无水印)**：公开图文免 Cookie；提取 1080P 无水印视频需要 | `sessionid_ss=xxx;` |
@@ -27,20 +27,30 @@
 
 ```mermaid
 flowchart TD
-    A["解析器启动"] --> B{"1. 读取环境变量 (.env / 宿主机)"}
-    B -->|"存在有效值"| Pass["应用该凭据"]
-    B -->|"不存在"| C{"2. 读取 configs/business_config.json"}
+    A["解析请求触发"] --> B{"1. 读取后台系统设置 (SQLite / /admin/settings)"}
+    B -->|"存在有效值"| Pass["应用该凭据 (支持热更新)"]
+    B -->|"为空/未配置"| C{"2. 读取 .env 环境变量 / 宿主机"}
     C -->|"存在有效值"| Pass
-    C -->|"不存在"| D["执行默认匿名 / 游客协议提取"]
+    C -->|"为空/未配置"| D{"3. 读取平台别名环境变量"}
+    D -->|"存在有效值"| Pass
+    D -->|"不存在"| E["执行默认匿名 / 游客协议提取"]
 ```
 
-### 方式 A：通过 `.env` 环境变量配置（推荐，最安全便捷）
+### 方式 A：管理员后台在线配置（推荐，即时生效无需重启）
+登录系统管理员后台，导航至 **系统设置 (`/admin/settings`)** -> **平台凭据 (Cookie)** Tab 选项卡：
+* 支持可视化配置各平台的 Cookie 凭据（如微信视频号 `cookie_wechat_channels`、小红书 `cookie_xiaohongshu` 等）；
+* 此处配置具有**最高优先级**，可覆盖 `.env` 中的初始环境变量；
+* 修改并点击保存后**立即生效，无需重启应用容器/进程**；清空框内内容并保存即可自动恢复回退读取 `.env` 配置。
+
+### 方式 B：通过 `.env` 环境变量配置
 在项目根目录创建或编辑 `.env` 文件（参考 [.env.example](file:///Users/leo/Projects/media-parser/.env.example)）：
 ```env
-# 小红书
-XHS_COOKIE="a1=xxx; webId=yyy;"
+# 微信视频号 / 腾讯元宝
+YUANBAO_COOKIE="hy_user=xxx; hy_token=xxx;"
 
-# 腾讯元宝（用于视频号解析）
+# 小红书
+XHS_COOKIE="a1=xxx; webId=xxx; web_session=xxx;"
+```
 YUANBAO_COOKIE="hy_user=xxx; hy_token=yyy;"
 
 # 快手

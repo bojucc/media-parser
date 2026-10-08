@@ -191,7 +191,7 @@
                         <div class="pie-center-text absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center select-none px-2">
                             <div class="pie-center-lbl text-xs text-slate-500 font-medium truncate max-w-[140px] transition-colors duration-150" id="portal-pie-lbl">总解析量</div>
                             <div class="pie-center-val text-xl font-bold text-slate-900 mt-0.5 tracking-tight transition-all duration-150" id="portal-pie-val">{{ pie_data['total_calls_formatted'] or pie_data['total_calls'] }} 次</div>
-                            <div class="pie-center-sub text-[11px] text-slate-400 mt-0.5 min-h-[16px] font-medium transition-colors duration-150" id="portal-pie-sub"></div>
+                            <div class="pie-center-sub text-[11px] text-slate-400 mt-0.5 min-h-[16px] font-medium transition-colors duration-150" id="portal-pie-sub"><span style="color:#94a3b8;font-size:10.5px;font-weight:400">成功率</span> <span style="color:#475569;font-weight:600">{{ pie_data['total_success_rate'] }}%</span></div>
                         </div>
                     </div>
 
@@ -233,21 +233,19 @@
                     <div>暂无 API 密钥调用排行数据</div>
                 </div>
                 {% else %}
-                <div class="space-y-3.5">
+                <div class="divide-y divide-slate-100">
                     {% for item in top_keys %}
-                    <div class="space-y-1.5">
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="flex items-center gap-2 font-semibold text-slate-800 truncate">
-                                <span class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold {{ 'bg-amber-100 text-amber-800' if loop.index == 1 else ('bg-slate-200 text-slate-700' if loop.index <= 3 else 'bg-slate-100 text-slate-500') }}">
-                                    {{ loop.index }}
-                                </span>
-                                {{ item['name'] }} <span class="text-slate-400 font-mono text-[11px]">({{ item['key_prefix'] }}...)</span>
+                    <div class="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 text-xs">
+                        <div class="flex items-center gap-2.5 min-w-0 pr-2">
+                            <span class="w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-bold shrink-0 {{ 'bg-amber-100 text-amber-800' if loop.index == 1 else ('bg-slate-200 text-slate-700' if loop.index <= 3 else 'bg-slate-100 text-slate-500') }}">
+                                {{ loop.index }}
                             </span>
-                            <span class="font-bold text-slate-900 shrink-0">{{ item['calls'] }} 次</span>
+                            <span class="font-medium text-slate-800 truncate" title="{{ item['name'] }}">
+                                {{ item['name'] }}
+                            </span>
+                            <span class="text-slate-400 font-mono text-[11px] shrink-0">({{ item['key_prefix'] }}...)</span>
                         </div>
-                        <div class="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                            <div class="h-full rounded-full bg-brand transition-all duration-500" style="width: {{ item['pct'] }}%"></div>
-                        </div>
+                        <span class="font-semibold text-slate-900 shrink-0 font-mono">{{ item['calls'] }} <span class="text-slate-400 font-sans font-normal">次</span></span>
                     </div>
                     {% endfor %}
                 </div>

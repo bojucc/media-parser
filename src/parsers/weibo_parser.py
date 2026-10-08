@@ -52,11 +52,11 @@ class WeiboParser(BaseParser):
             return None
 
         fid = (parse_qs(urlparse(self.real_url).query).get("fid") or [""])[0]
-        if re.fullmatch(r"\d+:\d+", fid):
+        if re.fullmatch(r"\d+:[a-zA-Z0-9]+", fid):
             return fid
-        if match := re.search(r"/(?:tv/|l/wblive/p/)?show/(\d+:\d+)", urlparse(self.real_url).path):
+        if match := re.search(r"/(?:tv/|l/wblive/p/)?show/(\d+:[a-zA-Z0-9]+)", urlparse(self.real_url).path):
             return match.group(1)
-        if match := re.search(r"/show/(\d+:\d+)", self.real_url):
+        if match := re.search(r"/show/(\d+:[a-zA-Z0-9]+)", self.real_url):
             return match.group(1)
         return None
 
@@ -65,14 +65,14 @@ class WeiboParser(BaseParser):
             return None
 
         fid = (parse_qs(urlparse(self.real_url).query).get("fid") or [""])[0]
-        if match := re.fullmatch(r"\d+:(\d+)", fid):
+        if match := re.fullmatch(r"\d+:([a-zA-Z0-9]+)", fid):
             return match.group(1)
 
         # 视频/直播页会从 video.weibo.com/show?fid=1034:... 跳转到
         # weibo.com/tv/show/1034:... 或 weibo.com/l/wblive/p/show/1022:...
-        if match := re.search(r"/(?:tv/|l/wblive/p/)?show/\d+:(\d+)", urlparse(self.real_url).path):
+        if match := re.search(r"/(?:tv/|l/wblive/p/)?show/\d+:([a-zA-Z0-9]+)", urlparse(self.real_url).path):
             return match.group(1)
-        if match := re.search(r"/show/\d+:(\d+)", self.real_url):
+        if match := re.search(r"/show/\d+:([a-zA-Z0-9]+)", self.real_url):
             return match.group(1)
             
         # PC / Mobile URL, like: weibo.com/123456789/O8yqz0I8Q or m.weibo.cn/7753941940/5332536008119716/qq
@@ -111,6 +111,7 @@ class WeiboParser(BaseParser):
             data = self._fetch_video_page_data()
             if data:
                 return data
+            return {}
 
         if not self.numeric_id:
             logger.error("WeiboParser: Could not extract numeric ID.")

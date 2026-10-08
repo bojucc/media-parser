@@ -68,9 +68,11 @@ flowchart TD
   }
   ```
 
-### 2.3 风控识别与提示机制
-* **风控特征识别**：快手反爬拦截会返回 `{"result": 2}` 或 `{"data": {"result": 400002, "bizName": "ANTICRAWL_DEFAULT"}}`。
-* **熔断响应**：解析器标记 `cookie_required = True`，并在无有效 Cookie 导致无法解析时抛出 `KUAISHOU_COOKIE_REQUIRED` 错误，引导管理员更新快手 Cookie。
+### 2.4 动态代理兼容与 Cookie 隔离说明
+在系统启用动态代理（配置 `DYNAMIC_PROXY_API_URL`，详见 [动态代理配置说明](../proxy-retry.md)）时，快手解析器具备以下针对性的会话隔离与容灾逻辑：
+* **结构与参数保留**：完整保留移动端/桌面端顺序、候选 URL 列表、GraphQL 请求体与回退、每条路径请求头、默认重定向行为、5 秒请求超时以及媒体字段提取规则。
+* **Session Cookie 严格隔离**：快手会话在每次顶层请求前后清空服务端 Cookie，保持独立 `requests.get/post` 不跨调用保存 Cookie 的行为（但同一调用内部的重定向仍保留 Cookie）。配置 Cookie 显式传入，请求头不写入 Session 公共字典，避免 Cookie 在多用户请求或多代理 IP 间共享污染。
+* **多路径切换逻辑**：直连模式下允许早期路径被拦截后由后续路径补救成功，只有所有路径最终均失败时才触发平台级代理窗口。代理模式检测到当前 IP 访问失败时将立即终止该 IP 的后续尝试并自动进行轮换。
 
 ---
 

@@ -19,6 +19,12 @@ class WeiboParserTest(unittest.TestCase):
         parser.real_url = "https://weibo.com/tv/show/1034:5336275486703690"
         self.assertEqual(parser._extract_video_oid(), "1034:5336275486703690")
 
+    def test_extracts_alphanumeric_video_oid_and_id(self):
+        parser = WeiboParser.__new__(WeiboParser)
+        parser.real_url = "https://video.weibo.com/show?fid=1034:cba52f9b57b69ca1a0cde0c2211e1ca1"
+        self.assertEqual(parser._extract_video_oid(), "1034:cba52f9b57b69ca1a0cde0c2211e1ca1")
+        self.assertEqual(parser._extract_id(), "cba52f9b57b69ca1a0cde0c2211e1ca1")
+
     def test_extracts_numeric_id_from_pc_numeric_url(self):
         parser = WeiboParser.__new__(WeiboParser)
         parser.real_url = "https://weibo.com/7928442102/5331959570240710"

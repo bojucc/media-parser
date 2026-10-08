@@ -291,7 +291,20 @@ function initChartInteractions() {
                 succDot.style.display = 'block';
             }
 
-            const failCount = parseInt(failures) || 0;
+            const totalCalls = parseInt(calls) || 0;
+            const succCalls = parseInt(successes) || 0;
+            let rate = '100%';
+            if (totalCalls > 0) {
+                const r = (succCalls / totalCalls) * 100;
+                if (r === 100) {
+                    rate = '100%';
+                } else if (succCalls < totalCalls && r >= 99.95) {
+                    rate = '99.9%';
+                } else {
+                    rate = (r % 1 === 0 ? r.toFixed(0) : r.toFixed(1)) + '%';
+                }
+            }
+
             tooltip.innerHTML = `
                 <div class="tt-title">${date}</div>
                 <div class="tt-row">
@@ -302,11 +315,10 @@ function initChartInteractions() {
                     <span style="display:flex;align-items:center;gap:6px"><i class="tt-dot" style="background:#10b981"></i>成功解析</span>
                     <strong>${successes} 次</strong>
                 </div>
-                ${failCount > 0 ? `
                 <div class="tt-row">
-                    <span style="display:flex;align-items:center;gap:6px"><i class="tt-dot" style="background:#ef4444"></i>失败解析</span>
-                    <strong>${failCount} 次</strong>
-                </div>` : ''}
+                    <span style="display:flex;align-items:center;gap:6px"><i class="tt-dot" style="background:#0ea5e9"></i>成功率</span>
+                    <strong>${rate}</strong>
+                </div>
             `;
             tooltip.classList.add('active');
 
@@ -609,7 +621,7 @@ function initDonutInteractions() {
 
         const defaultVal = centerVal.textContent;
         const defaultLbl = centerLbl.textContent;
-        const defaultSub = centerSub ? centerSub.textContent : '';
+        const defaultSub = centerSub ? centerSub.innerHTML : '';
 
         const slices = wrapper.querySelectorAll('.pie-slice');
         const pills = wrapper.querySelectorAll('.pie-pill-item');
